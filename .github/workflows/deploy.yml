@@ -32,13 +32,6 @@ jobs:
         node-version: '20'
         cache: 'npm'
 
-    - name: Setup Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        override: true
-        components: rustfmt, clippy
-
     - name: Add wasm32 target
       run: rustup target add wasm32-unknown-unknown
 
