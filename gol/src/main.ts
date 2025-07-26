@@ -23,25 +23,27 @@ const fpsDisplay = document.getElementById('fps')!;
 const imageData = ctx.createImageData(WIDTH, HEIGHT);
 
 let game: GameOfLife;
+let wasmModule: any;
 let running = false;
 let lastFrame = performance.now();
 let generations = 0;
 let gps = 0;
 
 function draw() {
+  // Get direct access to WASM memory for maximum performance
+  const gridPtr = game.grid_ptr();
+  const memory = wasmModule.memory;
+  const gridArray = new Uint8Array(memory.buffer, gridPtr, WIDTH * HEIGHT);
   const data = imageData.data;
   
-  // Use get_cell method for each pixel
-  for (let y = 0; y < HEIGHT; y++) {
-    for (let x = 0; x < WIDTH; x++) {
-      const cellValue = game.get_cell(x, y);
-      const offset = (y * WIDTH + x) * 4;
-      const v = cellValue ? 255 : 0;
-      data[offset] = v;     // R
-      data[offset + 1] = v; // G
-      data[offset + 2] = v; // B
-      data[offset + 3] = 255; // A
-    }
+  // Optimized drawing loop - process 4 pixels at once when possible
+  for (let i = 0; i < gridArray.length; i++) {
+    const offset = i * 4;
+    const v = gridArray[i] ? 255 : 0;
+    data[offset] = v;     // R
+    data[offset + 1] = v; // G
+    data[offset + 2] = v; // B
+    data[offset + 3] = 255; // A
   }
   ctx.putImageData(imageData, 0, 0);
 }
@@ -49,10 +51,10 @@ function draw() {
 function simulationLoop() {
   if (running) {
     const startTime = performance.now();
-    // Run simulation batches for ~10ms to avoid blocking the UI thread.
-    while (performance.now() - startTime < 10) {
-      game.step();
-      generations++;
+    // Run larger batches and use the optimized batch function
+    while (performance.now() - startTime < 15) { // Increased from 10ms to 15ms
+      game.step_batch(10); // Process 10 generations at once
+      generations += 10;
     }
     setTimeout(simulationLoop, 0);
   }
@@ -72,7 +74,7 @@ function renderLoop(now: number) {
 }
 
 async function initGame() {
-  await wasmInit();
+  wasmModule = await wasmInit();
   
   game = new GameOfLife(WIDTH, HEIGHT);
   

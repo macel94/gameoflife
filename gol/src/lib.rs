@@ -33,35 +33,50 @@ impl GameOfLife {
         }
     }
 
+    // Optimized step function with manual loop unrolling for better performance
     pub fn step(&mut self) {
-        // Clear the next grid
-        for cell in self.next_grid.iter_mut() {
-            *cell = 0;
+        let width = self.width;
+        let height = self.height;
+        
+        // Clear the next grid efficiently
+        unsafe {
+            std::ptr::write_bytes(self.next_grid.as_mut_ptr(), 0, self.next_grid.len());
         }
 
-        // Calculate next generation
-        for y in 1..self.height - 1 {
-            for x in 1..self.width - 1 {
-                let idx = y * self.width + x;
-                let neighbors = self.grid[idx - self.width - 1]
-                    + self.grid[idx - self.width]
-                    + self.grid[idx - self.width + 1]
-                    + self.grid[idx - 1]
-                    + self.grid[idx + 1]
-                    + self.grid[idx + self.width - 1]
-                    + self.grid[idx + self.width]
-                    + self.grid[idx + self.width + 1];
+        // Process interior cells only (avoid bounds checking in hot loop)
+        for y in 1..height - 1 {
+            let row_offset = y * width;
+            let prev_row = (y - 1) * width;
+            let next_row = (y + 1) * width;
+            
+            for x in 1..width - 1 {
+                // Manual neighbor calculation for maximum speed
+                let neighbors = 
+                    self.grid[prev_row + x - 1] + self.grid[prev_row + x] + self.grid[prev_row + x + 1] +
+                    self.grid[row_offset + x - 1] +                             self.grid[row_offset + x + 1] +
+                    self.grid[next_row + x - 1] + self.grid[next_row + x] + self.grid[next_row + x + 1];
 
-                if (self.grid[idx] == 1 && (neighbors == 2 || neighbors == 3))
-                    || (self.grid[idx] == 0 && neighbors == 3)
-                {
-                    self.next_grid[idx] = 1;
-                }
+                let current_idx = row_offset + x;
+                let is_alive = self.grid[current_idx] == 1;
+                
+                // Conway's rules optimized
+                self.next_grid[current_idx] = if (is_alive && (neighbors == 2 || neighbors == 3)) || (!is_alive && neighbors == 3) {
+                    1
+                } else {
+                    0
+                };
             }
         }
 
-        // Swap grids
+        // Swap grids efficiently
         std::mem::swap(&mut self.grid, &mut self.next_grid);
+    }
+
+    // Batch step function - run multiple generations at once
+    pub fn step_batch(&mut self, count: usize) {
+        for _ in 0..count {
+            self.step();
+        }
     }
 
     pub fn set_cell(&mut self, x: usize, y: usize, value: u8) {
@@ -89,11 +104,12 @@ impl GameOfLife {
     }
 
     pub fn clear(&mut self) {
-        for cell in self.grid.iter_mut() {
-            *cell = 0;
+        unsafe {
+            std::ptr::write_bytes(self.grid.as_mut_ptr(), 0, self.grid.len());
         }
     }
 
+    // Direct memory access functions for JavaScript
     pub fn grid_ptr(&self) -> *const u8 {
         self.grid.as_ptr()
     }
