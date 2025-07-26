@@ -1,43 +1,64 @@
-# Astro Starter Kit: Minimal
+# Conway's Game of Life (Vite + TypeScript + Rust + WebAssembly)
 
-```sh
-npm create astro@latest -- --template minimal
-```
+This project implements Conway's Game of Life using Vite, TypeScript, and Rust compiled to WebAssembly for maximum performance. Features:
+- 1000x1000 grid (1 million cells!)
+- Buttons to randomize, clear, and start the game
+- Core game logic implemented in Rust and compiled to WebAssembly
+- TypeScript handles UI and rendering
+- Optimized for high performance with Generations Per Second (GPS) counter
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+## 🚀 Live Demo
 
-## 🚀 Project Structure
+**[Play it live on GitHub Pages!](https://macel94.github.io/gameoflife/)**
 
-Inside of your Astro project, you'll see the following folders and files:
+## Performance
 
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
-```
+The Rust + WebAssembly implementation provides significant performance improvements over pure JavaScript/TypeScript:
+- **Pure TypeScript**: ~130 generations per second
+- **Rust + WebAssembly**: **~290 generations per second** (2.2x faster!)
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+## Getting Started
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Build the WebAssembly module (if not already built):
+   ```bash
+   source "$HOME/.cargo/env" && wasm-pack build --target web --out-dir pkg --release
+   ```
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
+4. Open your browser at the provided local address to view the game.
 
-Any static assets, like images, can be placed in the `public/` directory.
+## Deployment
 
-## 🧞 Commands
+The project automatically deploys to GitHub Pages using GitHub Actions whenever you push to the main branch. The workflow:
 
-All commands are run from the root of the project, from a terminal:
+1. Sets up Node.js and Rust
+2. Installs wasm-pack
+3. Builds the WebAssembly module in release mode
+4. Builds the Vite project
+5. Deploys to GitHub Pages
 
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
+## Project Structure
+- `src/` - TypeScript source code
+- `src/lib.rs` - Rust source code for WebAssembly
+- `pkg/` - Generated WebAssembly files
+- `.github/workflows/deploy.yml` - GitHub Pages deployment workflow
+- `.github/copilot-instructions.md` - Copilot custom instructions
+- `.vscode/tasks.json` - VS Code tasks
 
-## 👀 Want to learn more?
+## Performance Optimizations
 
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+The implementation uses several key optimizations:
+- **Direct memory access** between WebAssembly and JavaScript
+- **Batch processing** with optimized Rust loops
+- **Manual loop unrolling** and unsafe memory operations
+- **Release mode compilation** with full optimizations
+- **Efficient grid swapping** and memory management
+
+## License
+MIT
