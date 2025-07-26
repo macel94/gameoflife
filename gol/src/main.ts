@@ -1,9 +1,8 @@
 
 import './style.css'
 
-const WIDTH = 1024;
-const HEIGHT = 768;
-const CELL_SIZE = 1; // 1px per cell for performance
+const WIDTH = 1000;
+const HEIGHT = 1000;
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -18,10 +17,12 @@ app.innerHTML = `
 `;
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
-const ctx = canvas.getContext('2d')!;
+const ctx = canvas.getContext('2d', { alpha: false })!;
 const fpsDisplay = document.getElementById('fps')!;
+const imageData = ctx.createImageData(WIDTH, HEIGHT);
 
 let grid = new Uint8Array(WIDTH * HEIGHT);
+let nextGrid = new Uint8Array(WIDTH * HEIGHT);
 let running = false;
 let lastFrame = performance.now();
 let frames = 0;
@@ -40,37 +41,36 @@ function clearGrid() {
 }
 
 function draw() {
-  const imageData = ctx.createImageData(WIDTH, HEIGHT);
+  const data = imageData.data;
   for (let i = 0; i < grid.length; i++) {
+    const offset = i * 4;
     const v = grid[i] ? 255 : 0;
-    imageData.data[i * 4 + 0] = v;
-    imageData.data[i * 4 + 1] = v;
-    imageData.data[i * 4 + 2] = v;
-    imageData.data[i * 4 + 3] = 255;
+    data[offset] = v;
+    data[offset + 1] = v;
+    data[offset + 2] = v;
+    data[offset + 3] = 255;
   }
   ctx.putImageData(imageData, 0, 0);
 }
 
 function step() {
-  const next = new Uint8Array(WIDTH * HEIGHT);
-  for (let y = 0; y < HEIGHT; y++) {
-    for (let x = 0; x < WIDTH; x++) {
-      let neighbors = 0;
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          if (dx === 0 && dy === 0) continue;
-          const nx = x + dx;
-          const ny = y + dy;
-          if (nx >= 0 && nx < WIDTH && ny >= 0 && ny < HEIGHT) {
-            neighbors += grid[ny * WIDTH + nx];
-          }
-        }
-      }
+  nextGrid.fill(0);
+  for (let y = 1; y < HEIGHT - 1; y++) {
+    for (let x = 1; x < WIDTH - 1; x++) {
       const idx = y * WIDTH + x;
-      next[idx] = (grid[idx] && (neighbors === 2 || neighbors === 3)) || (!grid[idx] && neighbors === 3) ? 1 : 0;
+      const neighbors =
+        grid[idx - WIDTH - 1] + grid[idx - WIDTH] + grid[idx - WIDTH + 1] +
+        grid[idx - 1] + grid[idx + 1] +
+        grid[idx + WIDTH - 1] + grid[idx + WIDTH] + grid[idx + WIDTH + 1];
+      
+      if ((grid[idx] === 1 && (neighbors === 2 || neighbors === 3)) || (grid[idx] === 0 && neighbors === 3)) {
+        nextGrid[idx] = 1;
+      }
     }
   }
-  grid = next;
+  const temp = grid;
+  grid = nextGrid;
+  nextGrid = temp;
 }
 
 function loop(now: number) {
