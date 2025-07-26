@@ -41,3 +41,9 @@ but is this the maximum possible?
 
 it now suggests writing rust code and compiling it to wasm for performance improvements.
 
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source "$HOME/.cargo/env" && cargo --version
+source "$HOME/.cargo/env" && cargo install wasm-pack
+source "$HOME/.cargo/env" && cargo init --name wasm-gol --lib
+source "$HOME/.cargo/env" && wasm-pack build --target web
+source "$HOME/.cargo/env" && wasm-pack build --target web --out-dir pkg

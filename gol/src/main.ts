@@ -1,12 +1,13 @@
 
 import './style.css'
+import wasmInit, { GameOfLife } from '../pkg/wasm_gol.js'
 
 const WIDTH = 1000;
 const HEIGHT = 1000;
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
-  <h1>Conway's Game of Life</h1>
+  <h1>Conway's Game of Life (Rust + WebAssembly)</h1>
   <div style="margin-bottom: 1em;">
     <button id="randomize">Randomize</button>
     <button id="clear">Clear</button>
@@ -21,56 +22,28 @@ const ctx = canvas.getContext('2d', { alpha: false })!;
 const fpsDisplay = document.getElementById('fps')!;
 const imageData = ctx.createImageData(WIDTH, HEIGHT);
 
-let grid = new Uint8Array(WIDTH * HEIGHT);
-let nextGrid = new Uint8Array(WIDTH * HEIGHT);
+let game: GameOfLife;
 let running = false;
 let lastFrame = performance.now();
 let generations = 0;
 let gps = 0;
 
-function randomizeGrid() {
-  for (let i = 0; i < grid.length; i++) {
-    grid[i] = Math.random() > 0.8 ? 1 : 0;
-  }
-  draw();
-}
-
-function clearGrid() {
-  grid.fill(0);
-  draw();
-}
-
 function draw() {
   const data = imageData.data;
-  for (let i = 0; i < grid.length; i++) {
-    const offset = i * 4;
-    const v = grid[i] ? 255 : 0;
-    data[offset] = v;
-    data[offset + 1] = v;
-    data[offset + 2] = v;
-    data[offset + 3] = 255;
-  }
-  ctx.putImageData(imageData, 0, 0);
-}
-
-function step() {
-  nextGrid.fill(0);
-  for (let y = 1; y < HEIGHT - 1; y++) {
-    for (let x = 1; x < WIDTH - 1; x++) {
-      const idx = y * WIDTH + x;
-      const neighbors =
-        grid[idx - WIDTH - 1] + grid[idx - WIDTH] + grid[idx - WIDTH + 1] +
-        grid[idx - 1] + grid[idx + 1] +
-        grid[idx + WIDTH - 1] + grid[idx + WIDTH] + grid[idx + WIDTH + 1];
-      
-      if ((grid[idx] === 1 && (neighbors === 2 || neighbors === 3)) || (grid[idx] === 0 && neighbors === 3)) {
-        nextGrid[idx] = 1;
-      }
+  
+  // Use get_cell method for each pixel
+  for (let y = 0; y < HEIGHT; y++) {
+    for (let x = 0; x < WIDTH; x++) {
+      const cellValue = game.get_cell(x, y);
+      const offset = (y * WIDTH + x) * 4;
+      const v = cellValue ? 255 : 0;
+      data[offset] = v;     // R
+      data[offset + 1] = v; // G
+      data[offset + 2] = v; // B
+      data[offset + 3] = 255; // A
     }
   }
-  const temp = grid;
-  grid = nextGrid;
-  nextGrid = temp;
+  ctx.putImageData(imageData, 0, 0);
 }
 
 function simulationLoop() {
@@ -78,7 +51,7 @@ function simulationLoop() {
     const startTime = performance.now();
     // Run simulation batches for ~10ms to avoid blocking the UI thread.
     while (performance.now() - startTime < 10) {
-      step();
+      game.step();
       generations++;
     }
     setTimeout(simulationLoop, 0);
@@ -98,29 +71,46 @@ function renderLoop(now: number) {
   }
 }
 
-document.getElementById('randomize')!.onclick = () => randomizeGrid();
-document.getElementById('clear')!.onclick = () => clearGrid();
-document.getElementById('start')!.onclick = () => {
-  running = !running;
-  document.getElementById('start')!.textContent = running ? 'Stop' : 'Start';
-  if (running) {
-    lastFrame = performance.now();
-    generations = 0;
-    simulationLoop();
-    requestAnimationFrame(renderLoop);
-  }
-};
-
-// Allow clicking on canvas to toggle cells
-canvas.addEventListener('mousedown', (e) => {
-  const rect = canvas.getBoundingClientRect();
-  const x = Math.floor((e.clientX - rect.left));
-  const y = Math.floor((e.clientY - rect.top));
-  if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT) {
-    const idx = y * WIDTH + x;
-    grid[idx] = grid[idx] ? 0 : 1;
+async function initGame() {
+  await wasmInit();
+  
+  game = new GameOfLife(WIDTH, HEIGHT);
+  
+  document.getElementById('randomize')!.onclick = () => {
+    game.randomize(0.2);
     draw();
-  }
-});
+  };
+  
+  document.getElementById('clear')!.onclick = () => {
+    game.clear();
+    draw();
+  };
+  
+  document.getElementById('start')!.onclick = () => {
+    running = !running;
+    document.getElementById('start')!.textContent = running ? 'Stop' : 'Start';
+    if (running) {
+      lastFrame = performance.now();
+      generations = 0;
+      simulationLoop();
+      requestAnimationFrame(renderLoop);
+    }
+  };
 
-clearGrid();
+  // Allow clicking on canvas to toggle cells
+  canvas.addEventListener('mousedown', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left));
+    const y = Math.floor((e.clientY - rect.top));
+    if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT) {
+      const currentValue = game.get_cell(x, y);
+      game.set_cell(x, y, currentValue ? 0 : 1);
+      draw();
+    }
+  });
+
+  game.clear();
+  draw();
+}
+
+initGame().catch(console.error);
