@@ -3,7 +3,7 @@
 Project requirements:
 - Vite + TypeScript + Rust compiled to WebAssembly
 - Conway's Game of Life
-- 1024x768 grid
+- 1000x1000 grid
 - Buttons: Randomize, Clear, Start
 - All game logic in a single TypeScript file
 - Optimized for 60fps with FPS counter
