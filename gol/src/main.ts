@@ -25,8 +25,8 @@ let grid = new Uint8Array(WIDTH * HEIGHT);
 let nextGrid = new Uint8Array(WIDTH * HEIGHT);
 let running = false;
 let lastFrame = performance.now();
-let frames = 0;
-let fps = 0;
+let generations = 0;
+let gps = 0;
 
 function randomizeGrid() {
   for (let i = 0; i < grid.length; i++) {
@@ -73,18 +73,28 @@ function step() {
   nextGrid = temp;
 }
 
-function loop(now: number) {
+function simulationLoop() {
   if (running) {
-    step();
-    draw();
-    frames++;
-    if (now - lastFrame >= 1000) {
-      fps = frames;
-      frames = 0;
-      lastFrame = now;
-      fpsDisplay.textContent = `FPS: ${fps}`;
+    const startTime = performance.now();
+    // Run simulation batches for ~10ms to avoid blocking the UI thread.
+    while (performance.now() - startTime < 10) {
+      step();
+      generations++;
     }
-    requestAnimationFrame(loop);
+    setTimeout(simulationLoop, 0);
+  }
+}
+
+function renderLoop(now: number) {
+  if (running) {
+    draw();
+    if (now - lastFrame >= 1000) {
+      gps = generations;
+      generations = 0;
+      lastFrame = now;
+      fpsDisplay.textContent = `GPS: ${gps}`;
+    }
+    requestAnimationFrame(renderLoop);
   }
 }
 
@@ -95,8 +105,9 @@ document.getElementById('start')!.onclick = () => {
   document.getElementById('start')!.textContent = running ? 'Stop' : 'Start';
   if (running) {
     lastFrame = performance.now();
-    frames = 0;
-    requestAnimationFrame(loop);
+    generations = 0;
+    simulationLoop();
+    requestAnimationFrame(renderLoop);
   }
 };
 
